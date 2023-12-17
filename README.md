@@ -12,27 +12,8 @@ The overall architecture of our hierarchical modality fusion network.
 
 ## Datasets
 
-├── ACE05
-│   ├── test.json
-│   ├── train.json
-│   └── val.json
-├── m2e2
-│   ├── m2e2_test.json
-├── MNER
-│   ├── mner2015
-│   ├── mner2017
-│   ├── mnersnap
-├── MNRE
-│   ├── mnre_v1
-│   └── mnre_v2
+![path](datasets/path.png)
 
-├── swig_event
-│   ├── picture
-│   ├── swig_test.json
-│   ├── swig_train.json
-│   ├── swig_val.json
-
-- **MNER for Example**
 
 ## Data Preprocess
 

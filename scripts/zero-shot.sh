@@ -1,6 +1,6 @@
 #!/bin/bash
 usage() {
-  echo "Usage: ${0} [-t|--task] [-n|--node] [-m|--model] [-d|--datapath] [-p|--ports] [-b|--bs],[-e|--epoch],[-r|--rate],[-dp|--data_prefix]" 1>&2
+  echo "Usage: ${0} [-t|--task] [-n|--node] [-m|--model] [-d|--datapath] [-p|--ports] [-b|--bs] [-e|--epoch] [-lr|--learning_rate]" 1>&2
   exit 1 
 }
 while [[ $# -gt 0 ]];do
@@ -34,17 +34,9 @@ while [[ $# -gt 0 ]];do
       epochs=${2}
       shift 2
       ;;
-    -r|--rate)
-      rate=${2}
+    -lr|--learning_rate)
+      lr=${2}
       shift 2
-      ;;
-    -dp|--data_prefix)
-      data_prefix=${2}
-      shift 2
-      ;;
-    *)
-      usage
-      shift
       ;;
   esac
 done
@@ -137,7 +129,6 @@ python src/${task}.py \
         --run_name $name \
         --max_text_length 256\
         --gen_max_length 128\
-        --data_prefix $data_prefix\
         --use_tasks_prompts \
 
         # --eval_tasks "event_m2e2_arg, event_m2e2_trigger, event_m2e2_two_stage" \
