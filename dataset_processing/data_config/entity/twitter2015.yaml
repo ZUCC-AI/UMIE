@@ -1,0 +1,13 @@
+name: twitter2015
+path: data/twitter2015
+data_class: CoNLL03
+split:
+  train: train.txt
+  val: dev.txt
+  test: test.txt
+language: en
+mapper:
+  LOC: location
+  ORG: organization
+  PER: person
+  MISC: miscellaneous
