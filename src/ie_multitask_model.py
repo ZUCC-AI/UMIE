@@ -1,11 +1,11 @@
 
-from modeling_t5 import VLT5
+from modeling_t5 import UMIE
 from umie_model import UMIEModel
 import torch.nn as nn
 
 
 
-class UMIEMultiTask(VLT5):
+class UMIEMultiTask(UMIE):
     def __init__(self, config):
         super().__init__(config)
 

@@ -5,7 +5,7 @@ import sentencepiece as spm
 # The special tokens of T5Tokenizer is hard-coded with <extra_id_{}>
 # I create another class VLT5Tokenizer extending it to add <vis_extra_id_{}>
 
-class VLT5Tokenizer(T5Tokenizer):
+class UMIETokenizer(T5Tokenizer):
 
     # vocab_files_names = VOCAB_FILES_NAMES
     # pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
@@ -96,7 +96,7 @@ from tokenizers import Tokenizer, decoders, normalizers, pre_tokenizers, process
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 
-class VLT5Converter(SpmConverter):
+class UMIEConverter(SpmConverter):
     def vocab(self, proto):
         vocab = [(piece.piece, piece.score) for piece in proto.pieces]
         num_extra_ids = self.original_tokenizer._extra_ids
@@ -119,17 +119,17 @@ class VLT5Converter(SpmConverter):
         )
 
 
-def convert_slow_vlt5tokenizer(vlt5tokenizer):
-    return VLT5Converter(vlt5tokenizer).converted()
+def convert_slow_umietokenizer(umietokenizer):
+    return UMIEConverter(umietokenizer).converted()
 
 
-class VLT5TokenizerFast(T5TokenizerFast):
+class UMIETokenizerFast(T5TokenizerFast):
 
     # vocab_files_names = VOCAB_FILES_NAMES
     # pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
     # max_model_input_sizes = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
     # model_input_names = ["attention_mask"]
-    slow_tokenizer_class = VLT5Tokenizer
+    slow_tokenizer_class = UMIETokenizer
 
     prefix_tokens: List[int] = []
 
@@ -171,7 +171,7 @@ class VLT5TokenizerFast(T5TokenizerFast):
             # additional_special_tokens=additional_special_tokens,
             **kwargs
         )
-        fast_tokenizer = convert_slow_vlt5tokenizer(slow_tokenizer)
+        fast_tokenizer = convert_slow_umietokenizer(slow_tokenizer)
         self._tokenizer = fast_tokenizer
 
         PreTrainedTokenizerBase.__init__(

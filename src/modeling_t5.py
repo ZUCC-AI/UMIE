@@ -20,22 +20,6 @@ from transformers.utils import logging
 from sample import Downsample, SparseSample, OneDDownsample
 from timm.models.vision_transformer import resize_pos_embed
 
-from adapters import (
-    AdapterLayer, 
-    AdapterController,
-    OutputParallelAdapterLayer, 
-    TaskEmbeddingController,
-    AdapterLayersHyperNetController,
-    AdapterLayersOneHyperNetController,
-    MetaLayersAdapterController
-)
-
-from adapters.hypercomplex.layers import PHMLinear
-
-from prompt import (
-    PromptController,
-)
-
 # from utils import *
 
 logger = logging.get_logger(__name__)
@@ -457,20 +441,13 @@ class JointEncoder(T5Stack):
         elif config.sparse_sample:
             self.sparse_sample = SparseSample(config.n_boxes)
 
-        if config.encoder_prompt_config:
-            self.prompt_modules = PromptController(config.encoder_prompt_config)
-        else:
-            self.prompt_modules = None
-
+    
         self.init_weights()
 
     def set_input_embeddings(self, new_embeddings):
         self.embed_tokens = new_embeddings
         self.visual_embedding.obj_order_embedding = new_embeddings
 
-    def get_prompt(self, bsz, device):
-        input_tokens = self.prefix_tokens.unsqueeze(0).expand(bsz, -1).to(device)
-        return self.prefix_embedding(input_tokens)
 
     def forward(
         self,
@@ -495,9 +472,7 @@ class JointEncoder(T5Stack):
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
 
-        if self.prompt_modules is not None:
-            prefix_embeds = self.prompt_modules(inputs_embeds.shape[0], inputs_embeds.device, task)
-            inputs_embeds = torch.cat([prefix_embeds, inputs_embeds], dim=1)
+
 
         B, L = inputs_embeds.size()[:-1]
         
@@ -543,12 +518,6 @@ class JointEncoder(T5Stack):
         if vis_attention_mask is None:
             vis_attention_mask = attention_mask.new_ones(B, V_L)
 
-        if self.prompt_modules is not None:
-            prefix_attention_mask = torch.ones(
-                B, prefix_embeds.shape[1], dtype=inputs_embeds.dtype, device=inputs_embeds.device
-            )
-
-            attention_mask = torch.cat([prefix_attention_mask, attention_mask], dim=1)
 
         # attention_mask = torch.cat([attention_mask, vis_attention_mask], dim=1)
 
@@ -693,7 +662,7 @@ class JointEncoder(T5Stack):
         )
 
 
-class VLT5(T5ForConditionalGeneration):
+class UMIE(T5ForConditionalGeneration):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
@@ -739,10 +708,7 @@ class VLT5(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
-        if config.decoder_prompt_config:
-            self.prompt_modules = PromptController(config.decoder_prompt_config)
-        else:
-            self.prompt_modules = None
+
 
         if config.use_lm_head_adapter:
             self.output_adapter = OutputParallelAdapterLayer(config, self.model.shared.num_embeddings)
@@ -797,22 +763,7 @@ class VLT5(T5ForConditionalGeneration):
         set_phm_rule(self.encoder)
         set_phm_rule(self.decoder)
 
-    def get_prompt(self, bsz, device):
-        input_tokens = self.prefix_tokens.unsqueeze(0).expand(bsz, -1).to(device) # (B, L)
-        prefix_prompt = self.prefix_embedding(input_tokens) # (B, L, d_model)
 
-        temp_results = self.decoder(inputs_embeds=prefix_prompt, use_cache=True, return_dict=True)
-
-        past_key_values = temp_results.past_key_values
-
-        # past_key_values = list(past_key_values)
-
-        # for layer in range(len(past_key_values)):
-        #     past_key_values[layer] = list(past_key_values[layer])
-        #     past_key_values[layer].append(None)
-        #     past_key_values[layer].append(None)
-        
-        return past_key_values
 
     def set_input_embeddings(self, new_embeddings):
         self.shared = new_embeddings
@@ -928,26 +879,13 @@ class VLT5(T5ForConditionalGeneration):
         if attention_mask is None:
             attention_mask = input_ids.ne(self.config.pad_token_id).to(dtype=hidden_states.dtype, device=hidden_states.device)
 
-        if self.config.encoder_prompt_config is not None and self.config.encoder_prompt_config.prompt_len > 0:
-            prefix_attention_mask = torch.ones(
-                attention_mask.shape[0], 
-                self.config.encoder_prompt_config.prompt_len, 
-                dtype=attention_mask.dtype, 
-                device=attention_mask.device,
-            )
-
-            attention_mask = torch.cat([prefix_attention_mask, attention_mask], dim=1)
+     
         
         if vis_attention_mask is None:
             B, L = attention_mask.size()
             V_L = encoder_outputs[0].size(1) - L
             vis_attention_mask = attention_mask.new_ones(B, V_L)
         encoder_attention_mask = torch.cat([attention_mask, vis_attention_mask], dim=1)
-
-        if self.prompt_modules is not None and past_key_values is None:
-            prefix_embeds = self.prompt_modules(B, attention_mask.device, task)
-
-            past_key_values = self.decoder(inputs_embeds=prefix_embeds, use_cache=True, return_dict=True).past_key_values
 
         
         # Decode

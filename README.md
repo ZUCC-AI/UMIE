@@ -15,6 +15,25 @@ The overall architecture of our hierarchical modality fusion network.
 ![path](datasets/path.png)
 
 
+
+## Data Download
+
+- Twitter2015 & Twitter2017
+
+  The text data follows the conll format. You can download the Twitter2015 data via this [link](https://drive.google.com/file/d/1qAWrV9IaiBadICFb7mAreXy3llao_teZ/view?usp=sharing) and download the Twitter2017 data via this [link](https://drive.google.com/file/d/1ogfbn-XEYtk9GpUECq1-IwzINnhKGJqy/view?usp=sharing). Please place them in `data/NNER`.
+- MNRE
+  The MNRE dataset comes from [MEGA](https://github.com/thecharm/MNRE), many thanks.
+
+  MEE
+- The MEE dataset comes from [MEE](https://github.com/limanling/m2e2), many thanks.
+
+- SWiG(Visual Event Extraction Data)
+We download situation recognition data from SWiG. Please find the preprocessed data in [M2E2](https://github.com/limanling/m2e2/blob/master/src/dataflow/numpy/data_loader_situation.py) and [GSR](https://github.com/allenai/swig).
+
+- ACE05
+We preprcoessed ACE following [OneIE](http://blender.cs.illinois.edu/software/oneie/). The sample data format is in sample.json. Due to license reason, the ACE 2005 dataset is only accessible to those with LDC2006T06 license
+
+
 ## Data Preprocess
 
 **Vision**
@@ -29,7 +48,7 @@ The detected objects and the dictionary of the correspondence between the raw im
 ![VOA_EN_NW_2015.10.21.3017239_4](datasets/event.png)
 
 **Text**
-
+We preprcoessed Text data following [uie](https://github.com/universal-ie/UIE/tree/main/dataset_processing)
 ```bash
 bash data_processing/run_data_generation.bash
 ```
@@ -77,20 +96,7 @@ Exapmle:
 }
 ```
 
-## Data Download
 
-- Twitter2015 & Twitter2017
-
-  The text data follows the conll format. You can download the Twitter2015 data via this [link](https://drive.google.com/file/d/1qAWrV9IaiBadICFb7mAreXy3llao_teZ/view?usp=sharing) and download the Twitter2017 data via this [link](https://drive.google.com/file/d/1ogfbn-XEYtk9GpUECq1-IwzINnhKGJqy/view?usp=sharing). Please place them in `data/NNER`.
-- MNRE
-
-  The MNRE dataset comes from [MEGA](https://github.com/thecharm/MNRE), many thanks.
-
-  MEE
-- The MEE dataset comes from [MEE](https://github.com/limanling/m2e2), many thanks.
-- SWiG
-
-  The SWiG dataset comes from [SWiG](https://github.com/thecharm/MNRE), many thanks.
 
 ## Requirements
 

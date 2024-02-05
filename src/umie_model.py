@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 # from transformer import T5ForConditionalGeneration
-from modeling_t5 import VLT5
-class UMIEModel(VLT5):
+from modeling_t5 import UMIE
+class UMIEModel(UMIE):
     def __init__(self, config):
         super().__init__(config)
 

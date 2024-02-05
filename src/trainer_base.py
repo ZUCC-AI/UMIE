@@ -431,38 +431,21 @@ class TrainerBase(object):
 
     def create_tokenizer(self, **kwargs):
         from transformers import T5Tokenizer, BartTokenizer, T5TokenizerFast, BartTokenizerFast
-        from tokenization import VLT5Tokenizer, VLT5TokenizerFast
+        from tokenization import UMIETokenizer, UMIETokenizerFast
         if 't5' in self.args.tokenizer:
-            if self.args.use_vision:
-                tokenizer_class = VLT5Tokenizer
-                # tokenizer_class = T5TokenizerFast
-            else:
-                # tokenizer_class = T5Tokenizer
-                tokenizer_class = T5TokenizerFast
+            tokenizer_class = T5Tokenizer
         elif 'umie' in self.args.tokenizer:
             if self.args.use_vision:
-                tokenizer_class = VLT5Tokenizer
+                tokenizer_class = UMIETokenizer
                 # tokenizer_class = T5TokenizerFast
             else:
                 # tokenizer_class = T5Tokenizer
                 tokenizer_class = T5TokenizerFast
-        elif 'uie' in self.args.tokenizer:
-                tokenizer = AutoTokenizer.from_pretrained(
-                        self.args.backbone,
-                        cache_dir=None,
-                        use_fast=True,
-                        revision=None,
-                        use_auth_token=None,
-                        max_length=self.args.max_text_length
-                )
-                return tokenizer
-        elif 'bart' in self.args.tokenizer:
-            tokenizer_class = BartTokenizer
-            # tokenizer_class = BartTokenizerFast
+
+  
 
         tokenizer_name = self.args.backbone
         
-        # model_name_or_path = "/home/liqingyuan/VL_adapter/VL-T5/hf_models/uie-base-en"
 
         tokenizer = tokenizer_class.from_pretrained(
             self.args.backbone,
