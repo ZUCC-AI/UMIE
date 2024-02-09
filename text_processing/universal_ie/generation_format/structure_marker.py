@@ -36,3 +36,5 @@ class VisualStructureMarker(StructureMarker):
         self.source_span_end = '>'
         self.target_span_start = ':'
         self.sep_marker = ':'
+        self.target_span_start = '<spot>'
+
