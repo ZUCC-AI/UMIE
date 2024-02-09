@@ -35,16 +35,19 @@ def convert_graph(
         "event": list(),
     }
     for data_type, instance_list in datasets.items():
+        # print(data_type,instance_list)
         with open(os.path.join(output_folder, f"{data_type}.json"), "w") as output:
             for instance,image_id in tqdm(instance_list):
-                print(image_id)
                 counter.update([f"{data_type} sent"])
+                # import pdb
+                # pdb.set_trace()
                 converted_graph = convertor.annonote_graph(
                     tokens=instance.tokens,
                     entities=instance.entities,
                     relations=instance.relations,
                     events=instance.events,
                 )
+                # print(image_id)
                 src, tgt, spot_labels, asoc_labels = converted_graph[:4]
                 spot_asoc = converted_graph[4]
 
@@ -102,7 +105,6 @@ def convert_to_oneie(output_folder: str, datasets: Dict[str, List[Sentence]]):
     counter = Counter()
 
     for data_type, instance_list in datasets.items():
-        print(instance_list)
         with open(
             os.path.join(output_folder, f"{data_type}.oneie.json"), "w"
         ) as output:
@@ -182,23 +184,20 @@ def main():
     parser.add_argument("-output", dest="output", default="relation")
     options = parser.parse_args()
 
-    #Text2SpotAsoc
     generation_class = generation_format_dict.get(options.generation_format)
-    #data_config/event
-    print(options.config)
+
     if os.path.isfile(options.config):
         config_list = [options.config]
     else:
         config_list = [
             os.path.join(options.config, x) for x in os.listdir(options.config)
         ]
-    
+
     for filename in config_list:
         dataset = Dataset.load_yaml_file(filename)
 
         datasets = dataset.load_dataset()
         label_mapper = dataset.mapper
-        print(label_mapper)
 
         output_name = (
             f"converted_data/text2{options.generation_format}/{options.output}/"

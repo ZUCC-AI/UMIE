@@ -1,4 +1,4 @@
-name: oneie_ace05_en_event
+name: oneie_ace05_en_event_trigger
 path: data/oneie/ace05-EN
 data_class: OneIEEvent
 split:

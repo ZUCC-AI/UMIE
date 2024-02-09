@@ -73,6 +73,7 @@ class Spannet(TaskFormat):
     def load_from_file(filename, language='en') -> List[Sentence]:
         sentence_list = list()
         counter = Counter()
+        print(filename)
         with open(filename) as fin:
             for line in tqdm(fin):
                 spannet = Spannet(

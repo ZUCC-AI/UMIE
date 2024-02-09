@@ -1,8 +1,0 @@
-name: swig_event
-path: data/swig/
-data_class: SWiGEvent
-split:
-  train: swig_train.json
-  val: swig_val.json
-  test: swig_test.json
-language: en

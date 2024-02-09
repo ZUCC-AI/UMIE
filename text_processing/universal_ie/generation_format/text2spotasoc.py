@@ -6,39 +6,89 @@ from universal_ie.utils import tokens_to_str
 from universal_ie.generation_format.generation_format import GenerationFormat, StructureMarker
 from universal_ie.ie_format import Entity, Event, Label, Relation, Span
 
+def convert_spot_asoc(spot_asoc_instance, structure_maker, task = "relation"):
+    """将一个 Spot-Asoc 实例转换成目标字符串
 
-def convert_spot_asoc(spot_asoc_instance, structure_maker):
+    Args:
+        spot_asoc_instance ([type]): [description]
+        structure_maker ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    # print(spot_asoc_instance)
     spot_instance_str_rep_list = list()
-    for spot in spot_asoc_instance:
-        spot_str_rep = [
-            'The entity type of',
-            spot['span'],
-            # spot['label'],
-            # structure_maker.target_span_start,
-            'is',
-            # spot['span'],
-            spot['label']
-
-        ]
+    for i, spot in enumerate(spot_asoc_instance):
+        
+        label = False
+        if spot['label'] == "none" or spot['label'] == spot['span']:
+            if len(spot.get('asoc', list()))==0:
+                continue
+            label = True
+            
+        if task.startswith("relation") or task == "swig":
+            spot_str_rep = [
+            spot['span']
+            ]
+            
+        elif task.startswith("mner"):
+            spot_str_rep = [
+                spot['label'],
+                # structure_maker.target_span_start,
+                spot['span'],
+            ]
+            
+        elif task.endswith("trigger"):
+            spot_str_rep = [
+                spot['label'],
+                # structure_maker.target_span_start,
+                # '<spot>',
+                spot['span'],
+            ]
+            del spot['asoc']
+        elif task.endswith("arg"):
+            spot_str_rep = [
+                spot['label'],
+            ]
+        elif task.endswith("all"):
+            # print(task)
+            spot_str_rep = [
+                spot['label'],
+                '<spot>',
+                spot['span'],
+            ]
         for asoc_label, asoc_span in spot.get('asoc', list()):
             asoc_str_rep = [
-                structure_maker.span_start,
+                # structure_maker.span_start,
+                '<spot>',
                 asoc_label,
-                structure_maker.target_span_start,
+                '<spot>',
+                # structure_maker.target_span_start,
                 asoc_span,
-                structure_maker.span_end,
+                # structure_maker.span_end,
             ]
             spot_str_rep += [' '.join(asoc_str_rep)]
-        spot_instance_str_rep_list += [' '.join([
-            structure_maker.record_start,
-            ' '.join(spot_str_rep),
-            structure_maker.record_end,
-        ])]
+        
+        if i == 0:     
+            spot_instance_str_rep_list += [' '.join([
+                # structure_maker.record_start,
+                ' '.join(spot_str_rep),
+                # structure_maker.record_end,
+            ])]
+        else:
+            spot_instance_str_rep_list += [' '.join([
+                # structure_maker.record_start,
+                '<spot>',
+                ' '.join(spot_str_rep),
+                # structure_maker.record_end,
+            ])]
+            
+
     target_text = ' '.join([
-        structure_maker.sent_start,
-        ' '.join(spot_instance_str_rep_list),
-        structure_maker.sent_end,
-    ])
+            # structure_maker.sent_start,
+            ' '.join(spot_instance_str_rep_list),
+            # structure_maker.sent_end,
+        ])
     return target_text
 
 

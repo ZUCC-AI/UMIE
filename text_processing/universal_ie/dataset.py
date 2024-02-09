@@ -20,7 +20,6 @@ class Dataset:
     def load_dataset(self):
         datasets = {}
         for split_name, filename in self.split_dict.items():
-            print(os.path.join(self.path, filename))
             datasets[split_name] = self.data_class.load_from_file(
                 filename=os.path.join(self.path, filename),
                 language=self.language,

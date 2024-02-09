@@ -1,0 +1,33 @@
+name: MNRE-V2
+path: data/MNRE/MNRE-V2
+data_class: MNRE
+split:
+  train: mnre_train.txt
+  val: mnre_val.txt
+  test: mnre_test.txt
+language: en
+mapper:
+  /per/per/siblings: siblings
+  /org/org/alternate_names: alternate names
+  /per/misc/race: race
+  /per/per/parent: parent
+  /org/org/subsidiary: subsidiary
+  /per/misc/religion: religion
+  /loc/loc/contain: contain
+  /per/per/peer: peer
+  /per/misc/present_in: present in
+  /per/loc/place_of_birth: place of birth
+  /per/loc/place_of_residence: place of residence
+  /per/per/neighbor: neighbor
+  /misc/misc/part_of: part of
+  /per/org/member_of: member of
+  /misc/loc/held_on: held on
+  /per/misc/awarded: awarded
+  /per/misc/nationality: nationality
+  /org/loc/locate_at: locate at
+  /per/per/alternate_names: alternate names
+  /per/per/couple: couple
+  /per/per/charges: charges
+  /per/per/alumi: charges
+  None: none
+  none: none

@@ -50,10 +50,12 @@ def bio_tags_to_spans(
             # The span has ended.
             if active_conll_tag is not None:
                 spans.add((active_conll_tag, (span_start, span_end)))
-            active_conll_tag = None
+            # active_conll_tag = None
             # We don't care about tags we are
             # told to ignore, so we do nothing.
-            continue
+            # continue
+            import pdb
+            pdb.set_trace()
         elif bio_tag == "B":
             # We are entering a new span; reset indices
             # and active tag to new span.
@@ -126,6 +128,8 @@ def iob1_tags_to_spans(
     prev_bio_tag = None
     prev_conll_tag = None
     for index, string_tag in enumerate(tag_sequence):
+        # import pdb
+        # pdb.set_trace()
         curr_bio_tag = string_tag[0]
         curr_conll_tag = string_tag[2:]
 
@@ -134,7 +138,7 @@ def iob1_tags_to_spans(
         if curr_bio_tag == "O" or curr_conll_tag in classes_to_ignore:
             # The span has ended.
             if active_conll_tag is not None:
-                spans.add((active_conll_tag, (span_start, span_end)))
+                spans.add(("O", (index, index)))
             active_conll_tag = None
         elif _iob1_start_of_chunk(prev_bio_tag, prev_conll_tag, curr_bio_tag, curr_conll_tag):
             # We are entering a new span; reset indices
@@ -373,6 +377,8 @@ class TokenTagCols(Cols):
     def load_from_file(filename, language='en', tagging='bio') -> List[Sentence]:
         sentence_list = list()
         counter = Counter()
+        import pdb
+        pdb.set_trace()
         for rows in tqdm(Cols.generate_sentence(filename)):
             tokens = [token[0] for token in rows]
             ner = [token[1] for token in rows]
@@ -391,7 +397,6 @@ class TokenTagCols(Cols):
             counter.update(['sentence'])
             counter.update(['span'] * len(spans))
             sentence_list += [sentence.generate_instance()]
-        print(filename, counter)
         return sentence_list
 
 

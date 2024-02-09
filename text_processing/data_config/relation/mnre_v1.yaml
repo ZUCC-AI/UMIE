@@ -1,0 +1,45 @@
+name: MNRE-V1
+path: data/MNRE/MNRE-V1
+data_class: MNRE
+split:
+  train: ours_train.txt
+  val: ours_val.txt
+  test: ours_test.txt
+language: en
+mapper:
+  ORGANIZATION: organization
+  LOCATION: location
+  PERSON: person
+  /per/misc/creat: creat
+  /per/per/classmate: classmate
+  /per/loc/place_of_birth:  place of birth
+  /per/org/leader: leader
+  /per/misc/present_in: present in
+  /per/per/siblings: siblings
+  /org/org/subsidiary: subsidiary
+  /per/misc/awarded: awarded
+  /per/per/charges: charges
+  /per/per/colleague:  colleague
+  /per/per/alternate_names: alternat names
+  /per/loc/place_of_death: place of death
+  /org/org/alternate_names: alternate names
+  /per/per/couple: couple
+  /per/misc/religion: religion
+  /misc/loc/held_on: held_on
+  /misc/misc/held_on: held_on
+  /per/org/member_of: member of
+  /loc/loc/capital: capital
+  /loc/loc/administration_divisions: administration divisions
+  /per/misc/nationality: nationality
+  /loc/loc/contain:  contain
+  /per/loc/place_of_residence: place of residence
+  /org/loc/locate_at: locate at
+  /per/per/parent: parent
+  /per/misc/race: race
+  /per/org/founder_of: founder of
+  /per/per/peer: peer
+  /misc/misc/part_of: part of
+  /per/per/relative: relative
+  /per/per/neighbor: neighbor
+
+  none: none

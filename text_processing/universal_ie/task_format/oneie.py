@@ -5,8 +5,28 @@ from typing import List
 from universal_ie.task_format.task_format import TaskFormat
 from universal_ie.utils import tokens_to_str
 from universal_ie.ie_format import Entity, Event, Label, Sentence, Span
+import glob
+import os 
+ace_image = {}
+with open('/home/liqingyuan/dataset/ace_voa.txt') as filein:
+  for line in filein:
+    field = line.strip().split()
+    ace_image[field[0]] = field[1:][0]
+all_images = glob.glob("/home/liqingyuan/dataset/voa/*")
 
+def get_image_id(doc_id):
+  # print(ace_image)
+  images = ace_image.get(doc_id, '')
+  result = list()
+  for x in all_images:
+      for t in images:
+          if t in x:
+              result.append(x)
+              break
+  result.append('black.jpg')
+      
 
+  return os.path.split(result[0])[1]
 """
 {
   "doc_id": "AFP_ENG_20030427.0118",
@@ -115,14 +135,23 @@ class OneIEEvent(TaskFormat):
             text_id=self.sent_id
         )
 
+
+
+
+
     @staticmethod
     def load_from_file(filename, language='en') -> List[Sentence]:
+
+        
         sentence_list = list()
         with open(filename) as fin:
             for line in fin:
+                doc_id = json.loads(line.strip())['doc_id']
                 instance = OneIEEvent(
                     json.loads(line.strip()),
                     language=language
                 ).generate_instance()
-                sentence_list += [instance]
+                image_id = get_image_id(doc_id)
+                print(image_id)
+                sentence_list += [(instance,image_id)]
         return sentence_list

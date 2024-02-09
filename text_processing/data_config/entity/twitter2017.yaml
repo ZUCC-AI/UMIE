@@ -1,10 +1,10 @@
-name: conll03
-path: data/conll03
+name: twitter2017
+path: data/twitter2017
 data_class: CoNLL03
 split:
-  train: eng.train
-  val: eng.testa
-  test: eng.testb
+  train: train.txt
+  val: dev.txt
+  test: test.txt
 language: en
 mapper:
   LOC: location

@@ -1,10 +1,10 @@
-name: imsitu_event
-path: data/imsitu/
-data_class: ImsituEvent
+name: swig_event_trigger
+path: data/swig_event/
+data_class: SWiGEvent
 split:
-  train: imsitu_train.json
-  val: imsitu_val.json
-  test: imsitu_test.json
+  train: swig_train_event.json
+  val: swig_val_event.json
+  test: swig_test_event.json
 language: en
 
 mapper:

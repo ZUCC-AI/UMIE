@@ -1,5 +1,5 @@
-name: twitter2015
-path: data/twitter2015
+name: twittersnap
+path: data/twittersnap
 data_class: CoNLL03
 split:
   train: train.txt

@@ -67,8 +67,10 @@ class M2E2Event(TaskFormat):
         self.entities = doc_json['golden-entity-mentions']
         self.events = doc_json['golden-event-mentions']
     def generate_entity(self,span):
-        tokens = self.tokens[span['start']: span['end']]
-        indexes = list(range(span['start'], span['end']))
+        # tokens = self.tokens[span['start']: span['end']]
+        # indexes = list(range(span['start'], span['end']))
+        tokens = [span['text']]
+        indexes = list(range(0, 1))
         return Entity(
             span=Span(
                 tokens=tokens,
@@ -114,11 +116,14 @@ class M2E2Event(TaskFormat):
         sentence_list = list()
         with open(filename) as fin:
             data = json.load(fin)
-            print(len(data))
-            for line in data:
+            for line in data:              
                 if len(line["golden-event-mentions"]) != 0:
-                  instance = M2E2Event(line,language=language).generate_instance()
-                  sentence_list += [instance]
+                    if "image_id" not in line:
+                        print(line)
+                        break
+                    img_id = line["image_id"]
+                    instance = M2E2Event(line,language=language).generate_instance()
+                    sentence_list += [(instance,img_id)]
                 else:
                     print(line["golden-entity-mentions"])
         return sentence_list

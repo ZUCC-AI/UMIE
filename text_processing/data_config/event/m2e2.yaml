@@ -1,12 +1,12 @@
-name: m2e2_event
+name: m2e2_event_arg
 path: data/m2e2/
 data_class: M2E2Event
 split:
-  test: text_only_event.json
+  test: m2e2_test.json
 language: en
 
 mapper:
-  FAC: facilityx
+  FAC: facility
   GPE: geographical social political
   LOC: location
   ORG: organization

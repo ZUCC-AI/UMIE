@@ -3,6 +3,7 @@
 
 
 import json
+import ast
 from typing import List
 from universal_ie.utils import tokens_to_str, change_ptb_token_back
 from universal_ie.ie_format import Entity, Label, Relation, Sentence, Span
@@ -22,53 +23,10 @@ class JointER(TaskFormat):
         if self.tokens is None:
             print('[sentence without tokens]:', sentence_json)
             exit(1)
-        self.spo_list = sentence_json['spo_list']
-        self.spo_details = sentence_json['spo_details']
-        self.pos_tags = sentence_json['pos_tags']
+        self.h = sentence_json['h']
+        self.t = sentence_json['t']
+        self.relation = sentence_json['relation']
 
-    def generate_instance(self):
-        entities = dict()
-        relations = dict()
-        entity_map = dict()
-
-        for spo_index, spo in enumerate(self.spo_details):
-            s_s, s_e, s_t = spo[0], spo[1], spo[2]
-            tokens = self.tokens[s_s: s_e]
-            indexes = list(range(s_s, s_e))
-            if (s_s, s_e, s_t) not in entity_map:
-                entities[(s_s, s_e, s_t)] = Entity(
-                    span=Span(
-                        tokens=tokens,
-                        indexes=indexes,
-                        text=tokens_to_str(tokens, language=self.language),
-                    ),
-                    label=Label(s_t)
-                )
-
-            o_s, o_e, o_t = spo[4], spo[5], spo[6]
-            tokens = self.tokens[o_s: o_e]
-            indexes = list(range(o_s, o_e))
-            if (o_s, o_e, o_t) not in entity_map:
-                entities[(o_s, o_e, o_t)] = Entity(
-                    span=Span(
-                        tokens=tokens,
-                        indexes=indexes,
-                        text=tokens_to_str(tokens, language=self.language),
-                    ),
-                    label=Label(o_t)
-                )
-
-            relations[spo_index] = Relation(
-                arg1=entities[(s_s, s_e, s_t)],
-                arg2=entities[(o_s, o_e, o_t)],
-                label=Label(spo[3]),
-            )
-
-        return Sentence(
-            tokens=self.tokens,
-            entities=entities.values(),
-            relations=relations.values(),
-        )
 
     @staticmethod
     def load_from_file(filename, language='en') -> List[Sentence]:
@@ -82,3 +40,86 @@ class JointER(TaskFormat):
                 ).generate_instance()
             sentence_list += [instance]
         return sentence_list
+
+class MNRE(TaskFormat):
+    """ Joint Entity Relation Data format at https://github.com/yubowen-ph/JointER"""
+
+    def __init__(self, sentence_json, language='en'):
+        super().__init__(
+            language=language
+        )
+        self.tokens = sentence_json['token']
+        for index in range(len(self.tokens)):
+            self.tokens[index] = change_ptb_token_back(self.tokens[index])
+        if self.tokens is None:
+            print('[sentence without tokens]:', sentence_json)
+            exit(1)
+        self.h = sentence_json['h']
+        self.t = sentence_json['t']
+        self.relation = sentence_json['relation']
+        self.image_id = sentence_json['img_id']
+
+    def generate_instance(self):
+        entities = dict()
+        relations = dict()
+        entity_map = dict()
+        s_s,s_e = self.h['pos'] 
+        s_t = "none"  
+        tokens = self.tokens[s_s: s_e]
+        indexes = list(range(s_s, s_e))
+        if (s_s, s_e, s_t) not in entity_map:
+            entities[(s_s, s_e, s_t)] = Entity(
+                span=Span(
+                    tokens=tokens,
+                    indexes=indexes,
+                    text=tokens_to_str(tokens, language=self.language),
+                ),
+                label=Label(s_t)
+            )
+
+        o_s, o_e = self.t["pos"]
+        o_t = "none"
+        tokens = self.tokens[o_s: o_e]
+        indexes = list(range(o_s, o_e))
+        if (o_s, o_e, o_t) not in entity_map:
+            entities[(o_s, o_e, o_t)] = Entity(
+                span=Span(
+                    tokens=tokens,
+                    indexes=indexes,
+                    text=tokens_to_str(tokens, language=self.language),
+                ),
+                label=Label(o_t)
+            )
+
+        relations[0] = Relation(
+            arg1=entities[(s_s, s_e, s_t)],
+            arg2=entities[(o_s, o_e, o_t)],
+            label=Label(self.relation),
+        )
+
+        return (Sentence(
+            tokens=self.tokens,
+            entities=entities.values(),
+            relations=relations.values(),
+        ),self.image_id)
+
+
+    @staticmethod
+    def load_from_file(filename, language='en') -> List[Sentence]:
+        sentence_list = list()
+
+        # raw_instance_list = json.load(open(filename))
+        with open(filename, "r", encoding="utf-8") as f:
+            raw_instance_list = f.readlines()
+        
+            print(f"{filename}: {len(raw_instance_list)}")
+
+            for instance in raw_instance_list:
+                instance = MNRE(
+                        sentence_json=ast.literal_eval(instance),
+                        language=language
+                    ).generate_instance()
+                # import pdb
+                # pdb.set_trace()
+                sentence_list += [instance]
+            return sentence_list
