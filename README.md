@@ -1,5 +1,5 @@
-# UMIE
-Code and model for AAAI 2024: [UMIE: Unified Multimodal Information Extraction with Instruction Tuning](https://arxiv.org/abs/2401.03082)
+# UMIE (AAAI 2024 Oral)
+Code and model for AAAI 2024 (Oral): [UMIE: Unified Multimodal Information Extraction with Instruction Tuning](https://arxiv.org/abs/2401.03082)
 
 
 # UMIE: Unified Multimodal Information Extraction with Instruction Tuning
@@ -122,10 +122,10 @@ bash -x scripts/image/test_eval.sh -p 1 --task ie_multitask --model flan-t5 --po
 # Citation
 Please kindly cite our paper if you find any data/model in this repository helpful:
 ```
-@article{Sun2024UMIE,
+@inproceedings{Sun2024UMIE,
       title={UMIE: Unified Multimodal Information Extraction with Instruction Tuning}, 
       author={Lin Sun and Kai Zhang and Qingyuan Li and Renze Lou},
       year={2024},
-      journal={arXiv preprint arXiv:2401.03082}
+      booktitle={Proceedings of AAAI}
 }
 ```
