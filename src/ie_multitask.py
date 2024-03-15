@@ -40,7 +40,7 @@ import wandb
 proj_dir = Path(__file__).resolve().parent.parent
 
 
-_use_amp = False
+_use_amp = True
 from torch.cuda.amp import autocast
 scaler = torch.cuda.amp.GradScaler(enabled=_use_amp)
 
@@ -115,8 +115,8 @@ def get_loader(args, tokenizer, data_collector):
     alldataset = {
         "mner_mner2015": mner_data,
         "mner_mnersnap": mner_data,
-        "mner_mner2017": mner_data,
         "relation_mnre_v2": mnre_data,
+        "mner_mner2017": mner_data,
         "relation_mnre_v1":mnre_data,
         "event_ace05_all":ace05_data,
         "event_ace05_trigger":ace05_data,
@@ -130,30 +130,35 @@ def get_loader(args, tokenizer, data_collector):
         # "swig": swig_data,
     }
     args_dict = {}
+    # breakpoint()
     for key, value in alldataset.items():
         if key.startswith("mner"):
             mner_args = deepcopy(args)
             mner_args.prompt = "Please extract the following entity type:"
-            # mner_args.prompt = ""
+            # mner_args.prompt = "Given the entity types"
+            # mner_args.prompt = "Identity the following entity type from the given sentence"
+            # mner_args.prompt = "Please extract entity type in the sentence. Options: "
+
             args_dict[key] = mner_args
         elif key.startswith("relation"):
             mnre_args = deepcopy(args)
             mnre_args.prompt = "Please extract the following relation between:"
+            # mnre_args.batch_size=32
             # mnre_args.prompt = ""
             args_dict[key] = mnre_args
         elif key.endswith("-trigger"):
             event_trigger_args = deepcopy(args)
-            event_trigger_args.prompt = "Extract event trigger: "
+            event_trigger_args.prompt = "Please Extract event trigger: "
             # event_trigger_args.prompt = ""
             args_dict[key] = event_trigger_args
         elif key.endswith("-arg"):
             event_argument_args = deepcopy(args)
-            event_argument_args.prompt = "Extract event argument: "
+            event_argument_args.prompt = "Please Extract event argument: "
             # event_argument_args.prompt = ""
             args_dict[key] = event_argument_args
         else:
             event_args = deepcopy(args)
-            event_args.prompt = "Extract event trigger and argument: "
+            event_args.prompt = "Please Extract event trigger and argument: "
             # event_args.prompt = ""
             args_dict[key] = event_args
 
@@ -174,7 +179,7 @@ def get_loader(args, tokenizer, data_collector):
                 train_loader, train_dataset = alldataset[key].get_loader(
                     args_dict[key],
                     mode='train',
-                    batch_size=args.batch_size,
+                    batch_size= args_dict[key].batch_size,
                     distributed=args.distributed, 
                     gpu=args.gpu,
                     workers=args.num_workers,
@@ -186,7 +191,7 @@ def get_loader(args, tokenizer, data_collector):
                 ) 
                 task_num += 1
                 train_loaders.append(train_loader)
-                # train_datasets.append(train_dataset)
+                train_datasets.append(train_dataset)
             if args.gpu == 0:
                 if key in args.eval_tasks:
                     print(f'Building {key} val loader at GPU {args.gpu}')
@@ -364,17 +369,17 @@ class Trainer(TrainerBase):
 
             ds_config={
                 "train_batch_size": self.args.batch_size * self.args.world_size * self.args.gradient_accumulation_steps,
-                "steps_per_print": 1000,
+                "steps_per_print": 5000,
                 "optimizer": {
                 "type": "AdamW",
                 "params": {
                     "lr": args.lr,
                     "betas": [
-                    0.9,
-                    0.999
+                    args.adam_beta1,
+                    args.adam_beta2,
                     ],
-                    "eps": 5e-8,
-                    "weight_decay": 0.1
+                    "eps": args.adam_eps,
+                    "weight_decay": args.weight_decay
                 }
                 },
                 "tensorboard": {
@@ -383,12 +388,12 @@ class Trainer(TrainerBase):
                     "job_name": "training_muie"
                 },
                 "scheduler": {
-                "type": "WarmupLR",
+                "type": "WarmupDecayLR",
                 "params": {
-                    "warmup_min_lr": 0,
+                    "warmup_min_lr": 1e-5,
                     "warmup_max_lr":  args.lr,
                     "warmup_num_steps": warmup_iters,
-                    # "total_num_steps": t_total
+                    "total_num_steps": t_total
                 }
                 },
                 "gradient_clipping": self.args.clip_grad_norm,
@@ -399,19 +404,19 @@ class Trainer(TrainerBase):
                      "stage": 1
                  }
                 
-               # "zero_optimization": {
-              #      "stage": 3,
-               #     "offload_optimizer": {
-               #         "device": "cpu",
-               #         "pin_memory": True
-               #     },
-               #     "allgather_partitions": True,
-               #     "allgather_bucket_size": 2e8,
-               #     "reduce_scatter": True,
-               #     "reduce_bucket_size": 2e8,
-               #     "overlap_comm": True,
-               #     "contiguous_gradients": True
-               # }
+            #    "zero_optimization": {
+            #        "stage": 3,
+            #        "offload_optimizer": {
+            #            "device": "cpu",
+            #            "pin_memory": True
+            #        },
+            #        "allgather_partitions": True,
+            #        "allgather_bucket_size": 2e8,
+            #        "reduce_scatter": True,
+            #        "reduce_bucket_size": 2e8,
+            #        "overlap_comm": True,
+            #        "contiguous_gradients": True
+            #    }
             }
 
             print(ds_config)
@@ -452,7 +457,12 @@ class Trainer(TrainerBase):
             ace05_evt_loss_meter = LossMeter()
             swig_loss_meter = LossMeter()
             total_loss_meter = LossMeter()
+            event_ace05_trigger_loss_meter = LossMeter()
+            event_swig_trigger_loss_meter = LossMeter()
 
+            event_ace05_arg_loss_meter = LossMeter()
+            event_swig_arg_loss_meter = LossMeter()
+            
             best_mner2015_valid = 0.
             best_mner2015_epoch = 0
 
@@ -475,7 +485,9 @@ class Trainer(TrainerBase):
             best_m2e2_trigger_valid = 0
             best_m2e2_trigger_epoch = 0 
             
-
+            best_m2e2_arg_valid = 0
+            best_m2e2_arg_epoch = 0 
+            
             cur_vaild = 0
             
             best_vaild = 0 
@@ -518,7 +530,7 @@ class Trainer(TrainerBase):
             self.model.train()
             # self.partial_eval()
 
-            self.train_loader.set_epoch(epoch)
+            # self.train_loader.set_epoch(epoch)
             if self.verbose:
                 pbar = tqdm(total=len(self.train_loader), ncols=250)
 
@@ -551,12 +563,12 @@ class Trainer(TrainerBase):
             for step_i, batch in enumerate(self.train_loader):
 
                 task = batch['task']
-                # task = 'total'
+                task = 'total'
                 task_counter[task] += 1
 
                 batch['log_train_accuracy'] = self.args.log_train_accuracy
 
-                if _use_amp:
+                if not self.args.use_deepspeed and _use_amp:
                     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=_use_amp):
                         if self.args.distributed:
                             results = self.model.module.train_step(batch)
@@ -564,11 +576,15 @@ class Trainer(TrainerBase):
                             results = self.model.train_step(batch)
                     
                     loss = results['loss']
+                    # if task.startswith('relation'):
+                    #     loss = loss * 1.5
    
                     scaler.scale(loss).backward()
                     scaler.step(self.optim)
                     scaler.update()
                     self.lr_scheduler.step()
+                    if self.args.distributed:
+                        dist.barrier()
 
                 else:
                     if self.args.distributed:
@@ -577,12 +593,16 @@ class Trainer(TrainerBase):
                         results = self.model.train_step(batch)
 
                     loss = results['loss']
-
+                    
+                    # if task.startswith('relation'):
+                    #     loss = loss * 1.2
+                        
                     if self.args.use_deepspeed:
                         self.model.backward(loss)
                     else:
                         # print("loss.backward()")
                         loss.backward()
+                        
                         
                     loss = loss.detach()
 
@@ -594,6 +614,8 @@ class Trainer(TrainerBase):
                         self.optim.step()
                         # print
                         self.lr_scheduler.step()
+                        if self.args.distributed:
+                            dist.barrier()
 
      
                 global_step += 1
@@ -619,36 +641,62 @@ class Trainer(TrainerBase):
                         swig_event_loss_meter.update(loss.item())
                     elif task == 'event_ace05_all':
                         ace05_evt_loss_meter.update(loss.item())
+                    elif task == 'event_ace05_trigger':
+                        event_ace05_trigger_loss_meter.update(loss.item())
+                    elif task == 'event_ace05_arg':
+                        event_ace05_arg_loss_meter.update(loss.item())
+                    elif task == 'event_swig_trigger':
+                        event_swig_trigger_loss_meter.update(loss.item())
+                    elif task == 'event_swig_arg':
+                        event_swig_arg_loss_meter.update(loss.item())
                     elif task == 'total':
                         total_loss_meter.update(loss.item())
 
                     desc_str = f'Epoch {epoch} | LR {lr:.6f}'
 
-                    desc_str += f" |"
-                    if 'mner_mner2015' in self.args.tasks:
-                        desc_str += f" mner2015 {task_counter['mner_mner2015']}"
-                    if 'mner_mner2017' in self.args.tasks:
-                        desc_str += f" mner2017 {task_counter['mner_mner2017']}"
-                    if 'mner_mnersnap' in self.args.tasks:
-                        desc_str += f" mnersnap {task_counter['mner_mnersnap']}"
-                    if 'relation_mnre_v1' in self.args.tasks:
-                        desc_str += f" relation_mnre_v1 {task_counter['relation_mnre_v1']}"
-                    if 'relation_mnre_v2' in self.args.tasks:
-                        desc_str += f" relation_mnre_v2 {task_counter['relation_mnre_v2']}"
-                    if 'event_swig_all' in self.args.tasks:
-                        desc_str += f" event_swig {task_counter['event_swig_all']}"
-                    if 'event_ace05_all' in self.args.tasks:
-                        desc_str += f" event_ace05 {task_counter['event_ace05_all']}"
+                    # desc_str += f" |"
+                    # if 'mner_mner2015' in self.args.tasks:
+                    #     desc_str += f" T15 {task_counter['mner_mner2015']}"
+                    # if 'mner_mner2017' in self.args.tasks:
+                    #     desc_str += f" T17 {task_counter['mner_mner2017']}"
+                    # if 'mner_mnersnap' in self.args.tasks:
+                    #     desc_str += f" TSNAP {task_counter['mner_mnersnap']}"
+                    # if 'relation_mnre_v1' in self.args.tasks:
+                    #     desc_str += f" RE-V1 {task_counter['relation_mnre_v1']}"
+                    # if 'relation_mnre_v2' in self.args.tasks:
+                    #     desc_str += f" RE-V2 {task_counter['relation_mnre_v2']}"
+                    # if 'event_swig_all' in self.args.tasks:
+                    #     desc_str += f" event_swig {task_counter['event_swig_all']}"
+                    # if 'event_ace05_all' in self.args.tasks:
+                    #     desc_str += f" event_ace05 {task_counter['event_ace05_all']}"
+                    # if  'event_ace05_trigger' in self.args.tasks:
+                    #     desc_str += f" ACE-Tri {task_counter['event_ace05_trigger']}"
+                    # if  'event_ace05_arg' in self.args.tasks:
+                    #     desc_str += f" ACE-Arg { task_counter['event_ace05_trigger']}"    
+                    # if  'event_swig_trigger' in self.args.tasks:
+                    #     desc_str += f" SWiG-Tri {task_counter['event_ace05_trigger']}"
+                    # if  'event_swig_arg' in self.args.tasks:
+                    #     desc_str += f" SWiG-arg{ task_counter['event_ace05_trigger']}"
+                     
+                    desc_str += '| Loss |'   
                     if len(mner2015_loss_meter) > 0:
-                        desc_str += f' | mner2015 Loss {mner2015_loss_meter.val:4f}'
+                        desc_str += f' | T15  {mner2015_loss_meter.val:4f}'
                     if len(mner2017_loss_meter) > 0:
-                        desc_str += f' | mner2017 Loss {mner2017_loss_meter.val:4f}'
+                        desc_str += f' | T17  {mner2017_loss_meter.val:4f}'
                     if len(mnersnap_loss_meter) > 0:
-                        desc_str += f' | mnersnap Loss {mnersnap_loss_meter.val:.3f}'
+                        desc_str += f' | TSNAP {mnersnap_loss_meter.val:.3f}'
                     if len(mnre_v1_loss_meter) > 0:
-                        desc_str += f' | mnre_v1 Loss {mnre_v1_loss_meter.val:.3f}'    
+                        desc_str += f' | RE-V1 {mnre_v1_loss_meter.val:.3f}'    
                     if len(mnre_v2_loss_meter) > 0:
-                        desc_str += f' | mnre_v2 Loss {mnre_v2_loss_meter.val:.3f}'
+                        desc_str += f' | RE-V2 {mnre_v2_loss_meter.val:.3f}'
+                    if len(event_ace05_trigger_loss_meter) > 0:
+                        desc_str += f' | ACE-Tri {event_ace05_trigger_loss_meter.val:.3f}'
+                    if len(event_ace05_arg_loss_meter) > 0:
+                        desc_str += f' | ACE-Arg {event_ace05_arg_loss_meter.val:.3f}'
+                    if len(event_swig_trigger_loss_meter) > 0:
+                        desc_str += f' | SWiG-Tri {event_swig_trigger_loss_meter.val:.3f}'
+                    if len(event_swig_arg_loss_meter) > 0:
+                        desc_str += f' | SWiG-Arg {event_swig_arg_loss_meter.val:.3f}'
                     if len(swig_event_loss_meter) > 0:
                         desc_str += f' | swig_evt Loss {swig_event_loss_meter.val:.3f}'
                     if len(ace05_evt_loss_meter) > 0:
@@ -661,19 +709,21 @@ class Trainer(TrainerBase):
 
                     pbar.set_description(desc_str)
                     pbar.update(1)
+                    
 
-                if self.args.distributed:
-                    dist.barrier()
 
             if self.verbose:
                 pbar.close()
                 
-            print()
-            if self.args.gpu==0 and self.verbose and epoch >= 1:
-                # print("Epoch%02d" % (epoch + 1))
-                # self.save("Epoch%02d" % (epoch + 1))
+            # if self.args.gpu==0 and self.verbose and epoch >= 1:
+            self.save("Base-Epoch%02d" % (epoch))
+ 
+            if self.verbose:
 
-                # self.save("Epoch%02d" % (epoch + 1))
+                # print("Epoch%02d" % (epoch + 1))
+                # self.save("Base-Epoch%02d" % (epoch))
+
+                # self.save("Base-Epoch%02d" % (epoch + 1))
                 log_str = ''
                 wandb_log_dict = {}
 
@@ -681,8 +731,8 @@ class Trainer(TrainerBase):
                     # MNER
                     mner2015_test_loader = self.test_loader['mner_mner2015']
                     mner2015_test_results, mner2015_test_predictions= self.evaluate(mner2015_test_loader,AllRecordSchema.mner_record_schema,"entity")
-                    print("--------------------------------------------------------")
-                    print(loss.item())
+                    print("-----------------------mner2015_test_results---------------------------------")
+                    print(mner2015_test_results)
                     print("--------------------------------------------------------")
                     overall_F1 = mner2015_test_results['overall-F1']
                     cur_vaild += overall_F1
@@ -699,7 +749,7 @@ class Trainer(TrainerBase):
                     # GQA
                     mnersnap_test_loader = self.test_loader['mner_mnersnap']
                     mnersnap_test_results, mnersnap_test_predictions= self.evaluate(mnersnap_test_loader,AllRecordSchema.mner_record_schema,"entity")
-                    print("--------------------------------------------------------")
+                    print("-------------------------mner_mnersnap-------------------------------")
                     print(mnersnap_test_results)
                     print("--------------------------------------------------------")
 
@@ -719,7 +769,7 @@ class Trainer(TrainerBase):
                     mner2017_test_results, mner2017_test_predictions= self.evaluate(mner2017_test_loader, AllRecordSchema.mner_record_schema,"entity")
                     # print("--------------------------------------------------------")
                     # print(mnersnap_val_results)
-                    print("--------------------------------------------------------")
+                    print("-------------------------mner_mner2017-------------------------------")
                     print(mner2017_test_results)
                     print("--------------------------------------------------------")
 
@@ -741,7 +791,7 @@ class Trainer(TrainerBase):
                     mnre_v1_test_results, mnre_v1_test_predictions= self.evaluate(mnre_v1_test_loader,AllRecordSchema.mnre_v1_record_schema,"relation" )
                     # print("--------------------------------------------------------")
                     # print(mnre_v1_val_results)
-                    print("--------------------------------------------------------")
+                    print("--------------------------relation_mnre_v1------------------------------")
                     print(mnre_v1_test_results)
                     print("--------------------------------------------------------")
 
@@ -762,7 +812,7 @@ class Trainer(TrainerBase):
                     mnre_v2_test_results, mnre_v2_test_predictions= self.evaluate(mnre_v2_test_loader, AllRecordSchema.mnre_v2_record_schema, "relation")
                     # print("--------------------------------------------------------")
                     # print(mnre_v2_val_results)
-                    print("--------------------------------------------------------")
+                    print("--------------------------relation_mnre_v2------------------------------")
                     print(mnre_v2_test_results)
                     print("--------------------------------------------------------")
 
@@ -807,7 +857,7 @@ class Trainer(TrainerBase):
                     m2e2_trigger_test_results, well_formed_list_trigger = self.evaluate(m2e2_trigger_test_loader, AllRecordSchema.m2e2_record_schema, "event_trigger")
                     print("---------------------------m2e2_trigger_test_loader-----------------------------")
                     print(m2e2_trigger_test_results)
-                    print("---------------------------m2e2_trigger_test_loader-----------------------------")
+                    print("--------------------------------------------------------")
                     
                     overall_F1 = m2e2_trigger_test_results['spot-F1']
                     cur_vaild += overall_F1
@@ -816,7 +866,7 @@ class Trainer(TrainerBase):
                         best_m2e2_trigger_valid = overall_F1
                         best_m2e2_trigger_epoch = epoch
                         # self.save("VQA_BEST")
-                    log_str += f"m2e2"
+                    log_str += f"m2e2_Triger"
                     log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, overall_F1)
                     log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_trigger_epoch, best_m2e2_trigger_valid)
                     wandb_log_dict['m2e2/Valid/overall-F1'] = best_m2e2_trigger_epoch
@@ -825,22 +875,22 @@ class Trainer(TrainerBase):
                     # GQA
                     m2e2_arg_test_loader = self.val_loader['event_m2e2_arg']
                     m2e2_arg_test_results, well_formed_list_arg = self.evaluate(m2e2_arg_test_loader, AllRecordSchema.m2e2_record_schema, "event_arg")
-                    print("---------------------------event_m2e2_arg-----------------------------")
-                    print(m2e2_arg_test_results['asoc-F1'])
-                    print("---------------------------event_m2e2_arg-----------------------------")
+                    # print("---------------------------event_m2e2_arg-----------------------------")
+                    # print(m2e2_arg_test_results)
+                    # print("---------------------------event_m2e2_arg-----------------------------")
 
                 
-                    overall_F1 = m2e2_arg_test_results['overall-F1']
-                    cur_vaild += overall_F1
+                    # overall_F1 = m2e2_arg_test_results['asoc-F1']
+                    # cur_vaild += overall_F1
 
-                    if overall_F1 > best_m2e2_valid or epoch == 0:
-                        best_m2e2_arg_valid = overall_F1
-                        best_m2e2_arg_epoch = epoch
-                        # self.save("VQA_BEST")
-                    log_str += f"m2e2"
-                    log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, overall_F1)
-                    log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_epoch, best_m2e2_valid)
-                    wandb_log_dict['m2e2/Valid/overall-F1'] = best_m2e2_valid
+                    # if overall_F1 > best_m2e2_arg_valid or epoch == 0:
+                    #     best_m2e2_arg_valid = overall_F1
+                    #     best_m2e2_arg_epoch = epoch
+                    #     # self.save("VQA_BEST")
+                    # log_str += f"m2e2-arg"
+                    # log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, overall_F1)
+                    # log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_arg_epoch, best_m2e2_arg_valid)
+                    # wandb_log_dict['m2e2/Valid/overall-F1'] = best_m2e2_valid
                     
                 if 'event_m2e2_two_stage' in self.args.eval_tasks:
                     from extraction.scorer import Metric, RecordMetric, OrderedRecordMetric
@@ -868,7 +918,7 @@ class Trainer(TrainerBase):
                                 print("none modify asoc", instance_asoc['pred_asoc'][i], "gold asoc:", instance_asoc['gold_asoc'])
         
                            
-                        print("pred_asoc",instance_asoc['pred_asoc'], "gold_asoc",instance_asoc['gold_asoc'])
+                        # print("pred_asoc",instance_asoc['pred_asoc'], "gold_asoc",instance_asoc['gold_asoc'])
                         asoc_metric.count_instance(instance_asoc['gold_asoc'], instance_asoc['pred_asoc'])
                     spot_result = spot_metric.compute_f1(prefix='spot-')
                     asoc_result = asoc_metric.compute_f1(prefix='asoc-')
@@ -878,8 +928,24 @@ class Trainer(TrainerBase):
                     result = {'overall-F1': overall_f1}
                     result.update(spot_result)
                     result.update(asoc_result)
-                    print(result)
-                                
+                    print("---------------------------event_m2e2_arg-----------------------------")
+                    print(asoc_result)
+                    print("---------------------------event_m2e2_arg-----------------------------")
+                    overall_F1 = asoc_result['asoc-F1']
+                    cur_vaild += overall_F1
+
+                    if overall_F1 > best_m2e2_arg_valid or epoch == 0:
+                        best_m2e2_arg_valid = overall_F1
+                        best_m2e2_arg_epoch = epoch
+                        # self.save("VQA_BEST")
+                    log_str += f"m2e2-Arg"
+                    log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, overall_F1)
+                    log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_arg_epoch, best_m2e2_arg_valid)
+                    wandb_log_dict['m2e2/Valid/overall-F1'] = best_m2e2_valid
+                
+                    # log_str += f"event_m2e2_two_stage"
+                    # log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch,  asoc_result.get('asoc-F1', 0.))
+                    # # log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_arg_epoch, best_m2e2_arg_valid)
                     
                 if 'ace05-evt' in self.args.eval_tasks:
                     ace05_evt_test_loader = self.test_loader['ace05-evt']
@@ -899,8 +965,8 @@ class Trainer(TrainerBase):
                     log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, overall_F1)
                     log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_m2e2_epoch, best_m2e2_valid)
                     wandb_log_dict['ace05-evt/Valid/overall-F1'] = best_m2e2_valid
-                    log_str += "\nEpoch %d:  spot-F1 %0.2f " % (epoch, ace05_evt_test_results["spot-F1"])
-                    log_str += "\nEpoch %d:  asoc-F1 %0.2f\n" % (epoch, ace05_evt_test_results["asoc-F1"])
+                    # log_str += "\nEpoch %d:  spot-F1 %0.2f " % (epoch, ace05_evt_test_results["spot-F1"])
+                    # log_str += "\nEpoch %d:  asoc-F1 %0.2f\n" % (epoch, ace05_evt_test_results["asoc-F1"])
                 
            
                 
@@ -913,7 +979,7 @@ class Trainer(TrainerBase):
                 log_str += "\nEpoch %d: Valid overall-F1 %0.2f " % (epoch, cur_vaild)
                 log_str += "\nEpoch %d: Best overall-F1 %0.2f\n" % (best_epoch, best_vaild)
                 wandb_log_dict['all/overall-F1'] = best_vaild
-                wandb.log(wandb_log_dict, step=epoch)
+                # wandb.log(wandb_log_dict, step=epoch)
 
                 print(log_str)
 
@@ -1064,10 +1130,12 @@ if __name__ == "__main__":
     cudnn.benchmark = True
     args = parse_args()
     ngpus_per_node = torch.cuda.device_count() # 8
+    print(f'gpu count:{ngpus_per_node}')
     args.world_size = ngpus_per_node
     
     if args.local_rank in [0, -1]:
         print(args)
+        # breakpoint()
         comments = []
         if args.load is not None:
             ckpt_str = "_".join(args.load.split('/')[-3:])
@@ -1087,4 +1155,5 @@ if __name__ == "__main__":
             args.local_rank = args.cuda
     # if args.distributed:
     print(args.local_rank)
+    # breakpoint()
     main_worker(args.local_rank, args)
