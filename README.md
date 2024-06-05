@@ -109,13 +109,13 @@ pip install -r requirements.txt
 ## Train
 
 ```bash
-bash -x scripts/image/full_finetuning.sh -p 1 --task ie_multitask --model flan-t5 --ports 26754 --epoch 30  --lr 1e-4
+bash -x scripts/full_finetuning.sh -p 1 --task ie_multitask --model flan-t5 --ports 26754 --epoch 30  --lr 1e-4
 ```
 
 ## Test
 
 ```bash
-bash -x scripts/image/test_eval.sh -p 1 --task ie_multitask --model flan-t5 --ports 26768 
+bash -x scripts/test_eval.sh -p 1 --task ie_multitask --model flan-t5 --ports 26768 
 ```
 
 
